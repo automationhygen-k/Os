@@ -24,21 +24,13 @@ jobs:
           set -euo pipefail
           cargo build --release || (sleep 5 && cargo build --release)
 
-      - name: Install bootable ISO tooling (retry + fix missing)
-        run: |
-          set -euo pipefail
-          sudo apt-get update -o Acquire::Retries=3
-          sudo apt-get install -y --fix-missing grub-pc-bin grub-common xorriso cpio mtools || {
-            echo "First package install attempt failed; retrying after refresh..."
-            sleep 5
-            sudo apt-get update -o Acquire::Retries=3
-            sudo apt-get install -y --fix-missing grub-pc-bin grub-common xorriso cpio mtools
-          }
+      - name: Install bootable ISO tooling (multi-strategy)
+        run: bash scripts/install_iso_tooling.sh
 
       - name: Preflight toolchain verification
         run: |
           set -euo pipefail
-          for tool in grub-mkrescue xorriso mformat cpio; do
+          for tool in grub-mkrescue xorriso mformat cpio tar; do
             command -v "$tool" >/dev/null 2>&1 || {
               echo "Missing required tool after install: $tool"
               exit 1
@@ -46,7 +38,7 @@ jobs:
           done
 
       - name: Build bootable ISO (with script-level fallback)
-        run: bash scripts/build_bootable_iso.sh
+        run: AUTO_INSTALL_TOOLS=0 bash scripts/build_bootable_iso.sh
 
       - name: Upload bootable ISO artifact
         if: success()

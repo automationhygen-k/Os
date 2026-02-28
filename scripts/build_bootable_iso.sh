@@ -7,6 +7,7 @@ ISO_ROOT="${OUT_DIR}/iso-boot"
 ISO_PATH="${OUT_DIR}/AetherOS-bootable.iso"
 DEBUG_LOG="${OUT_DIR}/bootable-iso-build.log"
 FALLBACK_ARCHIVE="${OUT_DIR}/AetherOS-bootable-fallback.tar.gz"
+AUTO_INSTALL_TOOLS="${AUTO_INSTALL_TOOLS:-1}"
 
 mkdir -p "$OUT_DIR"
 rm -rf "$ISO_ROOT"
@@ -17,18 +18,50 @@ log() {
   echo "$1" | tee -a "$DEBUG_LOG"
 }
 
-require_tool() {
-  local tool="$1"
-  if ! command -v "$tool" >/dev/null 2>&1; then
-    log "Missing required tool: $tool"
-    log "Next step: install grub-common grub-pc-bin xorriso mtools cpio and rerun."
-    exit 1
-  fi
+missing_tools() {
+  local missing=()
+  local tool
+  for tool in grub-mkrescue xorriso mformat tar cpio; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      missing+=("$tool")
+    fi
+  done
+  printf '%s\n' "${missing[@]}"
 }
 
-for tool in grub-mkrescue xorriso mformat tar; do
-  require_tool "$tool"
-done
+ensure_tools() {
+  local missing
+  missing="$(missing_tools | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+  if [[ -z "$missing" ]]; then
+    return 0
+  fi
+
+  log "Missing ISO tools: ${missing}"
+
+  if [[ "$AUTO_INSTALL_TOOLS" == "1" ]]; then
+    log "Attempting automatic dependency install via scripts/install_iso_tooling.sh"
+    if bash "$ROOT_DIR/scripts/install_iso_tooling.sh" 2>&1 | tee -a "$DEBUG_LOG"; then
+      missing="$(missing_tools | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+      if [[ -z "$missing" ]]; then
+        return 0
+      fi
+      log "Auto-install ran but tools still missing: ${missing}"
+    else
+      log "Auto-install step failed."
+    fi
+  fi
+
+  log "Unable to satisfy required ISO tooling."
+  log "Recovery: install grub-mkrescue/xorriso/mtools/cpio manually or run in CI workflow."
+  return 1
+}
+
+if ! ensure_tools; then
+  tar -C "$OUT_DIR" -czf "$FALLBACK_ARCHIVE" "$(basename "$ISO_ROOT")"
+  log "Fallback archive: $FALLBACK_ARCHIVE"
+  log "Detailed log: $DEBUG_LOG"
+  exit 1
+fi
 
 log "Building kernel + initramfs bundle..."
 if ! bash "$ROOT_DIR/scripts/build_kernel_bundle.sh" 2>&1 | tee -a "$DEBUG_LOG"; then

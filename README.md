@@ -66,6 +66,7 @@ CI resilience additions:
 - package installation retries with `--fix-missing`
 - explicit preflight verification for `grub-mkrescue`, `xorriso`, `mformat`, and `cpio`
 - automatic upload of recovery artifacts (`bootable-iso-build.log`, fallback archive, staged iso tree) on failures
+- cross-distro dependency installer (`scripts/install_iso_tooling.sh`) used in CI and as local first-line recovery
 
 ## Bootloader + kernel + driver images
 
@@ -83,7 +84,7 @@ Build notes:
 - `scripts/build_kernel_bundle.sh` now auto-discovers a kernel from `/boot`, `/lib/modules/<release>/vmlinuz`, or `/usr/lib/modules/<release>/vmlinuz` (or uses `KERNEL_SRC=...` when set).
 - host modules (`/lib/modules/<release>`) are embedded into initramfs by default so the single ISO carries runtime + boot helper + modules together.
 - set `INCLUDE_HOST_MODULES=0` if you need a smaller image for quick iteration.
-- install `grub-common`, `grub-pc-bin`, `xorriso`, `mtools`, `tar`, and `cpio` before running ISO assembly locally.
+- run `bash scripts/install_iso_tooling.sh` to auto-install dependencies (apt/dnf/yum/pacman/apk support), or install `grub-common`, `grub-pc-bin`, `xorriso`, `mtools`, `tar`, and `cpio` manually.
 - `scripts/build_bootable_iso.sh` retries `grub-mkrescue`, captures a full build log, and writes a fallback archive (`dist/AetherOS-bootable-fallback.tar.gz`) if ISO generation still fails.
 
 Note: this remains a **bootable Linux-kernel-based prototype image path** (not yet a fully independent custom kernel distribution).
