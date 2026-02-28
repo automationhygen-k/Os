@@ -83,7 +83,8 @@ Added missing build components for a bootable prototype image:
 
 Build notes:
 
-- `scripts/build_kernel_bundle.sh` now auto-discovers a kernel from `/boot`, `/lib/modules/<release>/vmlinuz`, or `/usr/lib/modules/<release>/vmlinuz` (or uses `KERNEL_SRC=...` when set).
+- `scripts/build_kernel_bundle.sh` now auto-discovers a kernel from `/boot`, `/lib/modules/<release>/vmlinuz`, `/usr/lib/modules/<release>/vmlinuz`, and finally any available `vmlinuz-*` fallback (or uses `KERNEL_SRC=...` when set).
+- module embedding now auto-selects the best matching `/lib/modules/*` directory when `uname -r` does not match the discovered kernel image.
 - host modules (`/lib/modules/<release>`) are embedded into initramfs by default so the single ISO carries runtime + boot helper + modules together.
 - set `INCLUDE_HOST_MODULES=0` if you need a smaller image for quick iteration.
 - run `bash scripts/install_iso_tooling.sh` to auto-install dependencies (apt/dnf/yum/pacman/apk support), or install `grub-common`, `grub-pc-bin`, `xorriso`, `mtools`, `tar`, and `cpio` manually.

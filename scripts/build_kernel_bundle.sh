@@ -51,14 +51,17 @@ locate_kernel_image() {
     fi
   done
 
-  c="$(compgen -G '/boot/vmlinuz-*' | head -n1 || true)"
-  if [[ -n "$c" && -f "$c" ]]; then
-    printf '%s\n' "$c"
-    return 0
-  fi
+  # Fallback: pick any discoverable kernel image when uname -r does not match files on disk.
+  for c in /boot/vmlinuz-* /lib/modules/*/vmlinuz /usr/lib/modules/*/vmlinuz; do
+    if [[ -f "$c" ]]; then
+      printf '%s\n' "$c"
+      return 0
+    fi
+  done
 
   return 1
 }
+
 
 copy_binary_with_deps() {
   local binary="$1"
@@ -105,10 +108,29 @@ copy_binary_with_deps "$AETHER_BIN" "/bin/aether_os"
 copy_binary_with_deps "/bin/sh" "/bin/sh"
 
 if [[ "$INCLUDE_HOST_MODULES" == "1" ]]; then
+  MODULES_DIR=""
   if [[ -d "/lib/modules/${KERNEL_RELEASE}" ]]; then
-    cp -a "/lib/modules/${KERNEL_RELEASE}" "$INITRAMFS_STAGE/lib/modules/"
+    MODULES_DIR="/lib/modules/${KERNEL_RELEASE}"
   else
-    echo "Warning: /lib/modules/${KERNEL_RELEASE} not found; continuing without host modules."
+    IMAGE_BASENAME="$(basename "$KERNEL_SRC_PATH")"
+    IMAGE_RELEASE="${IMAGE_BASENAME#vmlinuz-}"
+    if [[ "$IMAGE_RELEASE" != "$IMAGE_BASENAME" && -d "/lib/modules/${IMAGE_RELEASE}" ]]; then
+      MODULES_DIR="/lib/modules/${IMAGE_RELEASE}"
+    else
+      for d in /lib/modules/*; do
+        if [[ -d "$d" ]]; then
+          MODULES_DIR="$d"
+          break
+        fi
+      done
+    fi
+  fi
+
+  if [[ -n "$MODULES_DIR" ]]; then
+    cp -a "$MODULES_DIR" "$INITRAMFS_STAGE/lib/modules/"
+    echo "  Modules:       $MODULES_DIR"
+  else
+    echo "Warning: no kernel modules directory found; continuing without host modules."
   fi
 fi
 
