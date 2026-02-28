@@ -2,8 +2,10 @@ name: Build Bootable ISO (only workflow)
 
 on:
   workflow_dispatch:
-  push:
-    branches: ["**"]
+
+concurrency:
+  group: aetheros-bootable-iso
+  cancel-in-progress: true
 
 jobs:
   bootable-iso:
@@ -37,23 +39,11 @@ jobs:
             }
           done
 
-      - name: Build bootable ISO (with script-level fallback)
+      - name: Build bootable ISO
         run: AUTO_INSTALL_TOOLS=0 bash scripts/build_bootable_iso.sh
 
-      - name: Upload bootable ISO artifact
-        if: success()
+      - name: Upload single ISO artifact
         uses: actions/upload-artifact@v4
         with:
           name: AetherOS-bootable-iso
           path: dist/AetherOS-bootable.iso
-
-      - name: Upload recovery artifacts on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: AetherOS-bootable-iso-recovery
-          path: |
-            dist/bootable-iso-build.log
-            dist/AetherOS-bootable-fallback.tar.gz
-            dist/iso-boot
-          if-no-files-found: warn

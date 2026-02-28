@@ -65,7 +65,9 @@ bash scripts/build_bootable_iso.sh
 CI resilience additions:
 - package installation retries with `--fix-missing`
 - explicit preflight verification for `grub-mkrescue`, `xorriso`, `mformat`, and `cpio`
-- automatic upload of recovery artifacts (`bootable-iso-build.log`, fallback archive, staged iso tree) on failures
+- workflow is manual-only (`workflow_dispatch`) to avoid multiple concurrent CI runs
+- concurrency lock cancels older in-progress ISO runs so only one run is active
+- uploads one artifact: `dist/AetherOS-bootable.iso`
 - cross-distro dependency installer (`scripts/install_iso_tooling.sh`) used in CI and as local first-line recovery
 
 ## Bootloader + kernel + driver images
