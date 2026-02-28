@@ -1,4 +1,4 @@
-name: Build Bootable ISO
+name: Build Bootable ISO (only workflow)
 
 on:
   workflow_dispatch:
