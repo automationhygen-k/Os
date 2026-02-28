@@ -152,6 +152,13 @@ impl TinyLlm {
             return Intent::FilesSearch(rest.trim().to_string());
         }
 
+        if lower == "diagnostics" || lower == "diagnostics report" {
+            return Intent::DiagnosticsReport;
+        }
+        if lower == "diagnostics clear" {
+            return Intent::DiagnosticsClear;
+        }
+
         if lower == "settings" {
             return Intent::SettingsSummary;
         }
@@ -228,6 +235,8 @@ pub enum Intent {
     FilesWrite(String, String),
     FilesSearch(String),
     SettingsSummary,
+    DiagnosticsReport,
+    DiagnosticsClear,
     SetAccent(String),
     ToggleNightShift,
     BatterySaver(bool),

@@ -27,7 +27,7 @@ impl Assistant {
             return Err("System not ready. Next step: complete boot.".to_string());
         }
 
-        let answer = match self.llm.infer_intent(input) {
+        let answer_result = match self.llm.infer_intent(input) {
             Intent::SetVolume(level) => self.control_volume(level),
             Intent::SetBrightness(level) => self.control_brightness(level),
             Intent::LaunchApp(name) => {
@@ -168,6 +168,17 @@ impl Assistant {
                 self.name,
                 self.kernel.settings_summary()?
             )),
+            Intent::DiagnosticsReport => Ok(format!(
+                "{} diagnostics:
+{}",
+                self.name,
+                self.kernel.diagnostics_report()
+            )),
+            Intent::DiagnosticsClear => Ok(format!(
+                "{}: {}",
+                self.name,
+                self.kernel.diagnostics_clear()
+            )),
             Intent::SetAccent(color) => Ok(format!(
                 "{}: {}",
                 self.name,
@@ -212,7 +223,19 @@ impl Assistant {
                     self.name, self.llm.name, self.llm.max_context_tokens, web_answer
                 ))
             }
-        }?;
+        };
+
+        let answer = match answer_result {
+            Ok(v) => v,
+            Err(e) => {
+                self.kernel
+                    .diagnostics_record("ERROR", &format!("command='{}' error={}", input, e));
+                return Err(e);
+            }
+        };
+
+        self.kernel
+            .diagnostics_record("INFO", &format!("command executed: {}", input));
 
         let maybe_wit = self.humor.maybe_line(
             0.95,

@@ -83,3 +83,21 @@ bash scripts/build_bootable_iso.sh
 ```
 
 Note: this is now a **bootable Linux-kernel-based prototype image path**. It is still not a fully independent custom kernel+driver OS distribution yet.
+
+
+## Bare-metal readiness status
+
+Can it run directly on hardware now?
+- **Prototype-level yes**: a GRUB + Linux-kernel + initramfs bootable path is present for direct boot testing.
+- **Production-level no**: it is not yet a full independent OS distribution with a custom kernel, full installer partitioning flow, hardware certification, and broad driver QA.
+
+## BootGuard recovery/debug companion
+
+A parallel boot helper now runs from initramfs:
+- `initramfs/boot_guard.sh` runs during boot
+- attempts automatic fixes for common early-boot issues (missing shell link, init executable bit, missing mount points)
+- writes logs to:
+  - `/var/log/aetheros/bootguard.log`
+  - `/var/log/aetheros/bootguard-history.log`
+
+Runtime diagnostics are also recorded in `/tmp/aetheros-diagnostics.log` and exposed through assistant command `diagnostics`.

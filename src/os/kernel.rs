@@ -6,6 +6,7 @@ use crate::os::context::ContextEngine;
 use crate::os::continuity::ContinuityCenter;
 use crate::os::design::{InteractionRulebook, MotionComplexity};
 use crate::os::desktop::DesktopShell;
+use crate::os::diagnostics::DiagnosticsCenter;
 use crate::os::filesystem::FileExplorer;
 use crate::os::notifications::NotificationCenter;
 use crate::os::performance::{PerformanceDirector, PowerProfile};
@@ -36,6 +37,7 @@ pub struct Kernel {
     settings: SystemSettings,
     notifications: NotificationCenter,
     context: ContextEngine,
+    diagnostics: DiagnosticsCenter,
     rulebook: InteractionRulebook,
 }
 
@@ -60,6 +62,7 @@ impl Kernel {
             settings: SystemSettings::new(),
             notifications: NotificationCenter::new(),
             context: ContextEngine::new(),
+            diagnostics: DiagnosticsCenter::new(),
             rulebook: InteractionRulebook::next_gen_default(),
         }
     }
@@ -71,6 +74,8 @@ impl Kernel {
 
         self.interaction_ready = true;
         self.booted = true;
+        self.diagnostics
+            .record("INFO", "kernel boot completed and interaction is ready");
         let tuning = self.performance.apply_profile(PowerProfile::Balanced);
         println!(
             "{} ready | {} | {} | workers={} latency={}ms | secure='{}'",
@@ -188,6 +193,10 @@ impl Kernel {
         let start = Instant::now();
         let (program, args) = self.compatibility.launch_command(&app)?;
         let result = self.process_manager.spawn_and_wait(&program, &args);
+        if let Err(e) = &result {
+            self.diagnostics
+                .record("ERROR", &format!("launch_app failed: {e}"));
+        }
         let elapsed = start.elapsed();
         self.context.record_action(
             "launch_app",
@@ -371,6 +380,18 @@ impl Kernel {
 
     pub fn concise_error(&self, message: &str) -> String {
         self.rulebook.concise_error(message)
+    }
+
+    pub fn diagnostics_report(&self) -> String {
+        self.diagnostics.read_recent(50)
+    }
+
+    pub fn diagnostics_clear(&self) -> String {
+        self.diagnostics.clear()
+    }
+
+    pub fn diagnostics_record(&self, level: &str, message: &str) {
+        self.diagnostics.record(level, message);
     }
 
     pub fn seed_demo_apps(&mut self) {

@@ -28,8 +28,9 @@ fi
 
 cp "$KERNEL_SRC" "$KERNEL_OUT"
 
-mkdir -p "$INITRAMFS_STAGE"/{bin,proc,sys,dev,etc}
+mkdir -p "$INITRAMFS_STAGE"/{bin,proc,sys,dev,etc,var/log/aetheros}
 cp "$ROOT_DIR/initramfs/init" "$INITRAMFS_STAGE/init"
+cp "$ROOT_DIR/initramfs/boot_guard.sh" "$INITRAMFS_STAGE/bin/boot_guard.sh"
 cp "$AETHER_BIN" "$INITRAMFS_STAGE/bin/aether_os"
 cp /bin/sh "$INITRAMFS_STAGE/bin/sh"
 

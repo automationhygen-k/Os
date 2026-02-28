@@ -9,6 +9,10 @@ echo "[AetherOS early userspace]"
 echo "Kernel: $(uname -r)"
 echo "Bringing up prototype environment..."
 
+if [ -x /bin/boot_guard.sh ]; then
+  /bin/boot_guard.sh &
+fi
+
 if [ -x /bin/aether_os ]; then
   echo "Starting aether_os runtime..."
   exec /bin/aether_os

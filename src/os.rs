@@ -5,6 +5,7 @@ pub mod context;
 pub mod continuity;
 pub mod design;
 pub mod desktop;
+pub mod diagnostics;
 pub mod filesystem;
 pub mod humor;
 pub mod kernel;

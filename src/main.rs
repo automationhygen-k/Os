@@ -51,6 +51,7 @@ fn main() -> Result<(), String> {
         "who are you",
         "launch Echo Demo",
         "list processes",
+        "diagnostics",
     ];
 
     for cmd in script {
