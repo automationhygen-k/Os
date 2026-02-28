@@ -15,16 +15,15 @@ cp "$ROOT_DIR/image/out/vmlinuz-aether" "$ISO_ROOT/boot/vmlinuz-aether"
 cp "$ROOT_DIR/image/out/initramfs-aether.img" "$ISO_ROOT/boot/initramfs-aether.img"
 cp "$ROOT_DIR/boot/grub/grub.cfg" "$ISO_ROOT/boot/grub/grub.cfg"
 
-if command -v grub-mkrescue >/dev/null 2>&1; then
-  grub-mkrescue -o "$ISO_PATH" "$ISO_ROOT" >/dev/null 2>&1
-elif command -v xorriso >/dev/null 2>&1; then
-  echo "grub-mkrescue missing; cannot create bootable GRUB ISO with xorriso alone."
-  echo "Next step: install grub-mkrescue (grub-common) and rerun."
-  exit 1
-else
-  echo "Missing ISO/boot tooling (grub-mkrescue)."
-  echo "Next step: install grub-mkrescue and xorriso, then rerun."
-  exit 1
-fi
+
+for tool in grub-mkrescue xorriso mformat; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "Missing required tool: $tool"
+    echo "Next step: install grub-common grub-pc-bin xorriso mtools."
+    exit 1
+  fi
+done
+
+grub-mkrescue -o "$ISO_PATH" "$ISO_ROOT"
 
 echo "Built bootable ISO: $ISO_PATH"

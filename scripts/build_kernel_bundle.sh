@@ -32,6 +32,8 @@ locate_kernel_image() {
     "/boot/vmlinuz-${KERNEL_RELEASE}"
     "/boot/vmlinuz"
     "/boot/bzImage-${KERNEL_RELEASE}"
+    "/lib/modules/${KERNEL_RELEASE}/vmlinuz"
+    "/usr/lib/modules/${KERNEL_RELEASE}/vmlinuz"
   )
 
   local c

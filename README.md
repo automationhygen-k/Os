@@ -75,9 +75,10 @@ Added missing build components for a bootable prototype image:
 
 Build notes:
 
-- `scripts/build_kernel_bundle.sh` now auto-discovers a kernel from `/boot` (or uses `KERNEL_SRC=...` when set).
+- `scripts/build_kernel_bundle.sh` now auto-discovers a kernel from `/boot`, `/lib/modules/<release>/vmlinuz`, or `/usr/lib/modules/<release>/vmlinuz` (or uses `KERNEL_SRC=...` when set).
 - host modules (`/lib/modules/<release>`) are embedded into initramfs by default so the single ISO carries runtime + boot helper + modules together.
 - set `INCLUDE_HOST_MODULES=0` if you need a smaller image for quick iteration.
+- install `grub-common`, `grub-pc-bin`, `xorriso`, `mtools`, and `cpio` before running ISO assembly locally.
 
 Note: this remains a **bootable Linux-kernel-based prototype image path** (not yet a fully independent custom kernel distribution).
 
