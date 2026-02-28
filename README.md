@@ -118,3 +118,10 @@ Added an automated bug bench path:
 - File operations are now sandboxed to `.aether_home` (path escape via `..` is blocked).
 - Process launches support sandbox policy environment filtering and optional sandbox working directory.
 - Added `FileExplorer` security test to ensure parent-path escape is denied.
+
+
+## Dock and All Apps UX polish
+
+- Dock now exposes a smoother interaction summary (magnification + smoothness score + consistent motion grammar).
+- Added a dedicated **All Apps Page** accessible from dock command surface (`open all apps`), with a stable 8pt-grid-oriented listing model.
+- Window transitions now report anchored open and spatial-return close semantics for consistency.

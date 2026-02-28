@@ -107,6 +107,11 @@ impl Assistant {
                 self.kernel.terminal_run(&command)?
             )),
             Intent::DockSummary => Ok(format!("{}: {}", self.name, self.kernel.dock_summary()?)),
+            Intent::OpenAllAppsPage => Ok(format!(
+                "{}: {}",
+                self.name,
+                self.kernel.open_all_apps_page()?
+            )),
             Intent::DockPin(app) => Ok(format!("{}: {}", self.name, self.kernel.dock_pin(&app)?)),
             Intent::OpenWindow(title) => Ok(format!(
                 "{}: {}",

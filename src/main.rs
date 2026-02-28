@@ -36,6 +36,7 @@ fn main() -> Result<(), String> {
         "focus deep",
         "power creator",
         "dock",
+        "open all apps",
         "open window Control Center",
         "mission control",
         "files write notes/today.txt :: refinement over noise",

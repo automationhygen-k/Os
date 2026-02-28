@@ -70,6 +70,9 @@ impl TinyLlm {
         if lower == "dock" {
             return Intent::DockSummary;
         }
+        if lower == "all apps" || lower == "open all apps" || lower == "dock all apps" {
+            return Intent::OpenAllAppsPage;
+        }
         if let Some(rest) = input.strip_prefix("dock pin ") {
             return Intent::DockPin(rest.trim().to_string());
         }
@@ -221,6 +224,7 @@ pub enum Intent {
     CommandPalette(String),
     Terminal(String),
     DockSummary,
+    OpenAllAppsPage,
     DockPin(String),
     OpenWindow(String),
     CloseWindow(u32),
@@ -275,6 +279,15 @@ mod tests {
                 assert_eq!(body, "body");
             }
             _ => panic!("expected files write intent"),
+        }
+    }
+
+    #[test]
+    fn parses_all_apps_intent() {
+        let llm = TinyLlm::embedded_default();
+        match llm.infer_intent("open all apps") {
+            Intent::OpenAllAppsPage => {}
+            _ => panic!("expected all apps intent"),
         }
     }
 }

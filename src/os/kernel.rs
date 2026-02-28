@@ -308,6 +308,17 @@ impl Kernel {
         Ok(self.desktop.pin_to_dock(app))
     }
 
+    pub fn open_all_apps_page(&self) -> Result<String, String> {
+        self.require(&Capability::ManageDesktop)?;
+        let names = self
+            .registry
+            .list()
+            .iter()
+            .map(|a| a.name.clone())
+            .collect::<Vec<_>>();
+        Ok(self.desktop.all_apps_page(&names))
+    }
+
     pub fn open_window(&mut self, title: &str) -> Result<String, String> {
         self.require(&Capability::ManageDesktop)?;
         Ok(self.desktop.open_window(title))
