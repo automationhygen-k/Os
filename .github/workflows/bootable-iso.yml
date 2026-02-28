@@ -8,6 +8,7 @@ on:
 jobs:
   bootable-iso:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,19 +19,49 @@ jobs:
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
 
-      - name: Build release runtime
-        run: cargo build --release
-
-      - name: Install bootable ISO tooling
+      - name: Build release runtime (retry)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y grub-pc-bin grub-common xorriso cpio mtools
+          set -euo pipefail
+          cargo build --release || (sleep 5 && cargo build --release)
 
-      - name: Build bootable ISO
+      - name: Install bootable ISO tooling (retry + fix missing)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y --fix-missing grub-pc-bin grub-common xorriso cpio mtools || {
+            echo "First package install attempt failed; retrying after refresh..."
+            sleep 5
+            sudo apt-get update -o Acquire::Retries=3
+            sudo apt-get install -y --fix-missing grub-pc-bin grub-common xorriso cpio mtools
+          }
+
+      - name: Preflight toolchain verification
+        run: |
+          set -euo pipefail
+          for tool in grub-mkrescue xorriso mformat cpio; do
+            command -v "$tool" >/dev/null 2>&1 || {
+              echo "Missing required tool after install: $tool"
+              exit 1
+            }
+          done
+
+      - name: Build bootable ISO (with script-level fallback)
         run: bash scripts/build_bootable_iso.sh
 
       - name: Upload bootable ISO artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: AetherOS-bootable-iso
           path: dist/AetherOS-bootable.iso
+
+      - name: Upload recovery artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AetherOS-bootable-iso-recovery
+          path: |
+            dist/bootable-iso-build.log
+            dist/AetherOS-bootable-fallback.tar.gz
+            dist/iso-boot
+          if-no-files-found: warn

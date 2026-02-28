@@ -62,6 +62,11 @@ cargo build --release
 bash scripts/build_bootable_iso.sh
 ```
 
+CI resilience additions:
+- package installation retries with `--fix-missing`
+- explicit preflight verification for `grub-mkrescue`, `xorriso`, `mformat`, and `cpio`
+- automatic upload of recovery artifacts (`bootable-iso-build.log`, fallback archive, staged iso tree) on failures
+
 ## Bootloader + kernel + driver images
 
 Added missing build components for a bootable prototype image:
@@ -78,7 +83,8 @@ Build notes:
 - `scripts/build_kernel_bundle.sh` now auto-discovers a kernel from `/boot`, `/lib/modules/<release>/vmlinuz`, or `/usr/lib/modules/<release>/vmlinuz` (or uses `KERNEL_SRC=...` when set).
 - host modules (`/lib/modules/<release>`) are embedded into initramfs by default so the single ISO carries runtime + boot helper + modules together.
 - set `INCLUDE_HOST_MODULES=0` if you need a smaller image for quick iteration.
-- install `grub-common`, `grub-pc-bin`, `xorriso`, `mtools`, and `cpio` before running ISO assembly locally.
+- install `grub-common`, `grub-pc-bin`, `xorriso`, `mtools`, `tar`, and `cpio` before running ISO assembly locally.
+- `scripts/build_bootable_iso.sh` retries `grub-mkrescue`, captures a full build log, and writes a fallback archive (`dist/AetherOS-bootable-fallback.tar.gz`) if ISO generation still fails.
 
 Note: this remains a **bootable Linux-kernel-based prototype image path** (not yet a fully independent custom kernel distribution).
 

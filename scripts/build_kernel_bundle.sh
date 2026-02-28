@@ -12,11 +12,18 @@ INITRAMFS_OUT="${OUT_DIR}/initramfs-aether.img"
 AETHER_BIN="${ROOT_DIR}/target/release/aether_os"
 INCLUDE_HOST_MODULES="${INCLUDE_HOST_MODULES:-1}"
 
-if ! command -v cpio >/dev/null 2>&1; then
-  echo "Missing required tool: cpio"
-  echo "Next step: install cpio and rerun."
-  exit 1
-fi
+require_tool() {
+  local tool="$1"
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "Missing required tool: $tool"
+    echo "Next step: install required build tools and rerun."
+    exit 1
+  fi
+}
+
+for t in cpio gzip find awk ldd; do
+  require_tool "$t"
+done
 
 locate_kernel_image() {
   if [[ -n "${KERNEL_SRC:-}" ]]; then
@@ -53,11 +60,30 @@ locate_kernel_image() {
   return 1
 }
 
+copy_binary_with_deps() {
+  local binary="$1"
+  local destination_rel="$2"
+
+  if [[ ! -f "$binary" ]]; then
+    echo "Warning: binary missing, skipping dependency copy: $binary"
+    return 0
+  fi
+
+  mkdir -p "$INITRAMFS_STAGE$(dirname "$destination_rel")"
+  cp "$binary" "$INITRAMFS_STAGE$destination_rel"
+
+  while IFS= read -r lib; do
+    [[ -z "$lib" ]] && continue
+    mkdir -p "$INITRAMFS_STAGE$(dirname "$lib")"
+    cp "$lib" "$INITRAMFS_STAGE$lib"
+  done < <(ldd "$binary" | awk '{for (i=1; i<=NF; i++) if ($i ~ /^\//) print $i}' | sort -u)
+}
+
 mkdir -p "$OUT_DIR"
 
 KERNEL_SRC_PATH="$(locate_kernel_image || true)"
 if [[ -z "$KERNEL_SRC_PATH" ]]; then
-  echo "Kernel image not found in /boot."
+  echo "Kernel image not found in known locations."
   echo "Next step: set KERNEL_SRC to a valid Linux kernel image path."
   exit 1
 fi
@@ -73,20 +99,10 @@ cp "$KERNEL_SRC_PATH" "$KERNEL_OUT"
 mkdir -p "$INITRAMFS_STAGE"/{bin,proc,sys,dev,etc,var/log/aetheros,lib/modules}
 cp "$ROOT_DIR/initramfs/init" "$INITRAMFS_STAGE/init"
 cp "$ROOT_DIR/initramfs/boot_guard.sh" "$INITRAMFS_STAGE/bin/boot_guard.sh"
-cp "$AETHER_BIN" "$INITRAMFS_STAGE/bin/aether_os"
-cp /bin/sh "$INITRAMFS_STAGE/bin/sh"
+chmod +x "$INITRAMFS_STAGE/init" "$INITRAMFS_STAGE/bin/boot_guard.sh"
 
-for lib in $(ldd /bin/sh | awk '{print $3}' | grep '^/' || true); do
-  target="$INITRAMFS_STAGE$(dirname "$lib")"
-  mkdir -p "$target"
-  cp "$lib" "$target/"
-done
-
-ldso="$(ldd /bin/sh | awk '/ld-linux|ld-musl/ {for (i=1; i<=NF; i++) if ($i ~ /^\//) print $i}' | tail -n1 || true)"
-if [[ -n "${ldso}" && -f "${ldso}" ]]; then
-  mkdir -p "$INITRAMFS_STAGE$(dirname "$ldso")"
-  cp "$ldso" "$INITRAMFS_STAGE${ldso}"
-fi
+copy_binary_with_deps "$AETHER_BIN" "/bin/aether_os"
+copy_binary_with_deps "/bin/sh" "/bin/sh"
 
 if [[ "$INCLUDE_HOST_MODULES" == "1" ]]; then
   if [[ -d "/lib/modules/${KERNEL_RELEASE}" ]]; then
