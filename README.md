@@ -49,3 +49,16 @@ cargo run
 
 ## Scope honesty
 This remains a high-fidelity prototype runtime, not a production-ready replacement for Windows/macOS. The implemented layer focuses on interaction quality, clarity, and behavior policy enforcement rather than kernel/driver replacement.
+
+
+## ISO status (important)
+
+You can now generate an **installer ISO artifact** via GitHub Actions (`Build Installer ISO Artifact`) or locally with:
+
+```bash
+cargo build --release
+bash scripts/make_installer_iso.sh
+```
+
+This ISO currently packages the AetherOS prototype binary + installer helper script for an existing Linux system.
+It is **not yet a bare-metal bootable replacement OS image** with its own kernel/bootloader/driver stack.

@@ -1,0 +1,34 @@
+name: Build Installer ISO Artifact
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Install ISO tooling
+        run: sudo apt-get update && sudo apt-get install -y xorriso
+
+      - name: Build installer ISO artifact
+        run: bash scripts/make_installer_iso.sh
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AetherOS-installer-iso
+          path: dist/AetherOS-installer.iso
