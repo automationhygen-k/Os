@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
+use crate::os::security::SandboxPolicy;
+
 #[derive(Clone)]
 pub struct ProcessRecord {
     pub pid: u32,
@@ -16,10 +18,37 @@ pub struct ProcessManager {
 
 impl ProcessManager {
     pub fn spawn_and_wait(&mut self, program: &str, args: &[String]) -> Result<String, String> {
-        let output = Command::new(program)
+        self.spawn_and_wait_sandboxed(program, args, &SandboxPolicy::developer_friendly())
+    }
+
+    pub fn spawn_and_wait_sandboxed(
+        &mut self,
+        program: &str,
+        args: &[String],
+        policy: &SandboxPolicy,
+    ) -> Result<String, String> {
+        let mut command = Command::new(program);
+        command
             .args(args)
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        command.env_clear();
+        for key in &policy.allowed_env {
+            if let Ok(value) = std::env::var(key) {
+                command.env(key, value);
+            }
+        }
+
+        if let Some(dir) = &policy.working_dir {
+            command.current_dir(dir);
+        }
+
+        if !policy.can_access_network {
+            command.env("AETHER_SANDBOX_NET", "off");
+        }
+
+        let output = command
             .output()
             .map_err(|e| format!("failed to spawn '{}': {e}", program))?;
 

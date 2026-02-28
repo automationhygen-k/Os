@@ -41,6 +41,7 @@ pub struct SandboxPolicy {
     pub can_access_home: bool,
     pub can_access_network: bool,
     pub allowed_env: Vec<String>,
+    pub working_dir: Option<String>,
 }
 
 impl SandboxPolicy {
@@ -49,6 +50,16 @@ impl SandboxPolicy {
             can_access_home: false,
             can_access_network: false,
             allowed_env: vec!["PATH".to_string(), "LANG".to_string()],
+            working_dir: None,
+        }
+    }
+
+    pub fn developer_friendly() -> Self {
+        Self {
+            can_access_home: true,
+            can_access_network: true,
+            allowed_env: vec!["PATH".to_string(), "LANG".to_string(), "HOME".to_string()],
+            working_dir: None,
         }
     }
 }

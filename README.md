@@ -101,3 +101,20 @@ A parallel boot helper now runs from initramfs:
   - `/var/log/aetheros/bootguard-history.log`
 
 Runtime diagnostics are also recorded in `/tmp/aetheros-diagnostics.log` and exposed through assistant command `diagnostics`.
+
+
+## Bug bench + optimisation/security checks
+
+Added an automated bug bench path:
+
+- `scripts/bug_bench.sh` runs fmt/check/test + runtime smoke execution and fails on panic/error markers
+- `.github/workflows/bug-bench.yml` runs:
+  - `cargo clippy --all-targets`
+  - shell script syntax validation
+  - bug bench smoke pipeline
+
+## Security hardening updates
+
+- File operations are now sandboxed to `.aether_home` (path escape via `..` is blocked).
+- Process launches support sandbox policy environment filtering and optional sandbox working directory.
+- Added `FileExplorer` security test to ensure parent-path escape is denied.

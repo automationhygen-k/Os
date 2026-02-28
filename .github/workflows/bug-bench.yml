@@ -1,0 +1,29 @@
+name: Bug Bench and Security Checks
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  bug-bench:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Static lint (clippy)
+        run: cargo clippy --all-targets -- -A dead_code
+
+      - name: Validate shell scripts
+        run: bash -n scripts/*.sh initramfs/init initramfs/boot_guard.sh
+
+      - name: Run bug bench
+        run: bash scripts/bug_bench.sh

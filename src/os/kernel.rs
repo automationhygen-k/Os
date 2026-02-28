@@ -192,7 +192,13 @@ impl Kernel {
         self.context.set_foreground_app(&app.name);
         let start = Instant::now();
         let (program, args) = self.compatibility.launch_command(&app)?;
-        let result = self.process_manager.spawn_and_wait(&program, &args);
+        let mut policy = app.sandbox.clone();
+        if policy.can_access_home {
+            policy.working_dir = Some(self.files.home.to_string_lossy().to_string());
+        }
+        let result = self
+            .process_manager
+            .spawn_and_wait_sandboxed(&program, &args, &policy);
         if let Err(e) = &result {
             self.diagnostics
                 .record("ERROR", &format!("launch_app failed: {e}"));

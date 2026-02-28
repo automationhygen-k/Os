@@ -14,13 +14,14 @@ pub struct FileExplorer {
 
 impl FileExplorer {
     pub fn new() -> Self {
-        Self {
-            home: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
-        }
+        let base = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let home = base.join(".aether_home");
+        let _ = fs::create_dir_all(&home);
+        Self { home }
     }
 
     pub fn list(&self, path: Option<&str>) -> Result<Vec<FileEntry>, String> {
-        let target = self.resolve(path.unwrap_or("."));
+        let target = self.resolve(path.unwrap_or("."))?;
         let mut entries = fs::read_dir(&target)
             .map_err(|e| format!("failed to read '{}': {e}", target.display()))?
             .filter_map(Result::ok)
@@ -36,13 +37,13 @@ impl FileExplorer {
     }
 
     pub fn read_text(&self, path: &str) -> Result<String, String> {
-        let target = self.resolve(path);
+        let target = self.resolve(path)?;
         fs::read_to_string(&target)
             .map_err(|e| format!("failed to read '{}': {e}", target.display()))
     }
 
     pub fn write_text(&self, path: &str, content: &str) -> Result<String, String> {
-        let target = self.resolve(path);
+        let target = self.resolve(path)?;
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent)
                 .map_err(|e| format!("failed to create '{}': {e}", parent.display()))?;
@@ -62,14 +63,40 @@ impl FileExplorer {
         out
     }
 
-    fn resolve(&self, path: &str) -> PathBuf {
+    fn resolve(&self, path: &str) -> Result<PathBuf, String> {
+        let base = fs::canonicalize(&self.home)
+            .map_err(|e| format!("failed to access home '{}': {e}", self.home.display()))?;
+
         let candidate = PathBuf::from(path);
-        if candidate.is_absolute() {
+        let joined = if candidate.is_absolute() {
             candidate
         } else {
-            self.home.join(candidate)
+            base.join(candidate)
+        };
+
+        let normalized = normalize_path(&joined);
+        if !normalized.starts_with(&base) {
+            return Err(
+                "path denied by sandbox. Next step: use a path under .aether_home.".to_string(),
+            );
+        }
+
+        Ok(normalized)
+    }
+}
+
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            std::path::Component::CurDir => {}
+            other => out.push(other.as_os_str()),
         }
     }
+    out
 }
 
 fn walk(
@@ -117,5 +144,12 @@ mod tests {
         explorer.write_text(path, payload).expect("write");
         let read_back = explorer.read_text(path).expect("read");
         assert_eq!(read_back, payload);
+    }
+
+    #[test]
+    fn denies_parent_escape() {
+        let explorer = FileExplorer::new();
+        let blocked = explorer.read_text("../../etc/passwd");
+        assert!(blocked.is_err());
     }
 }
