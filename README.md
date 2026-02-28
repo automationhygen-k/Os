@@ -53,18 +53,16 @@ This remains a high-fidelity prototype runtime, not a production-ready replaceme
 
 ## ISO status (important)
 
-You can now generate an **installer ISO artifact** via GitHub Actions (`Build Installer ISO Artifact`) or locally with:
+AetherOS now targets a **single bootable ISO path**. The bootable image contains the kernel + initramfs + runtime entrypoint and is the only GitHub workflow artifact.
+
+Build locally:
 
 ```bash
 cargo build --release
-bash scripts/make_installer_iso.sh
+bash scripts/build_bootable_iso.sh
 ```
 
-This ISO currently packages the AetherOS prototype binary + installer helper script for an existing Linux system.
-It is **not yet a bare-metal bootable replacement OS image** with its own kernel/bootloader/driver stack.
-
-
-## Bootloader + kernel + driver images (new)
+## Bootloader + kernel + driver images
 
 Added missing build components for a bootable prototype image:
 
@@ -75,14 +73,13 @@ Added missing build components for a bootable prototype image:
 - `scripts/build_bootable_iso.sh` — assembles GRUB bootable ISO (`dist/AetherOS-bootable.iso`)
 - `.github/workflows/bootable-iso.yml` — CI workflow to build and upload bootable ISO artifact
 
-Build locally (when host has required tooling):
+Build notes:
 
-```bash
-cargo build --release
-bash scripts/build_bootable_iso.sh
-```
+- `scripts/build_kernel_bundle.sh` now auto-discovers a kernel from `/boot` (or uses `KERNEL_SRC=...` when set).
+- host modules (`/lib/modules/<release>`) are embedded into initramfs by default so the single ISO carries runtime + boot helper + modules together.
+- set `INCLUDE_HOST_MODULES=0` if you need a smaller image for quick iteration.
 
-Note: this is now a **bootable Linux-kernel-based prototype image path**. It is still not a fully independent custom kernel+driver OS distribution yet.
+Note: this remains a **bootable Linux-kernel-based prototype image path** (not yet a fully independent custom kernel distribution).
 
 
 ## Bare-metal readiness status
@@ -108,10 +105,7 @@ Runtime diagnostics are also recorded in `/tmp/aetheros-diagnostics.log` and exp
 Added an automated bug bench path:
 
 - `scripts/bug_bench.sh` runs fmt/check/test + runtime smoke execution and fails on panic/error markers
-- `.github/workflows/bug-bench.yml` runs:
-  - `cargo clippy --all-targets`
-  - shell script syntax validation
-  - bug bench smoke pipeline
+- run `scripts/bug_bench.sh` locally for fmt/check/test + runtime smoke coverage before generating the ISO.
 
 ## Security hardening updates
 
