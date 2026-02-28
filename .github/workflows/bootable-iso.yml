@@ -1,0 +1,36 @@
+name: Build Bootable ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+
+jobs:
+  bootable-iso:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release runtime
+        run: cargo build --release
+
+      - name: Install bootable ISO tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y grub-pc-bin grub-common xorriso cpio
+
+      - name: Build bootable ISO
+        run: bash scripts/build_bootable_iso.sh
+
+      - name: Upload bootable ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AetherOS-bootable-iso
+          path: dist/AetherOS-bootable.iso

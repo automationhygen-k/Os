@@ -62,3 +62,24 @@ bash scripts/make_installer_iso.sh
 
 This ISO currently packages the AetherOS prototype binary + installer helper script for an existing Linux system.
 It is **not yet a bare-metal bootable replacement OS image** with its own kernel/bootloader/driver stack.
+
+
+## Bootloader + kernel + driver images (new)
+
+Added missing build components for a bootable prototype image:
+
+- `boot/grub/grub.cfg` — GRUB entry for AetherOS kernel + initramfs
+- `initramfs/init` — early userspace init that launches `aether_os`
+- `scripts/build_kernel_bundle.sh` — collects Linux kernel + builds initramfs with `aether_os`
+- `scripts/build_driver_image.sh` — packages `/lib/modules/<release>` as compressed driver image
+- `scripts/build_bootable_iso.sh` — assembles GRUB bootable ISO (`dist/AetherOS-bootable.iso`)
+- `.github/workflows/bootable-iso.yml` — CI workflow to build and upload bootable ISO artifact
+
+Build locally (when host has required tooling):
+
+```bash
+cargo build --release
+bash scripts/build_bootable_iso.sh
+```
+
+Note: this is now a **bootable Linux-kernel-based prototype image path**. It is still not a fully independent custom kernel+driver OS distribution yet.

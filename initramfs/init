@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs none /dev
+
+echo "[AetherOS early userspace]"
+echo "Kernel: $(uname -r)"
+echo "Bringing up prototype environment..."
+
+if [ -x /bin/aether_os ]; then
+  echo "Starting aether_os runtime..."
+  exec /bin/aether_os
+fi
+
+echo "aether_os binary missing in initramfs. Dropping to shell."
+exec sh
