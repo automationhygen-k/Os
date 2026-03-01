@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+OUT_DIR="${ROOT_DIR}/image/out"
+INITRAMFS_STAGE="$(mktemp -d)"
+trap 'rm -rf "$INITRAMFS_STAGE"' EXIT
+
+KERNEL_RELEASE="${KERNEL_RELEASE:-$(uname -r)}"
+KERNEL_OUT="${OUT_DIR}/vmlinuz-aether"
+INITRAMFS_OUT="${OUT_DIR}/initramfs-aether.img"
+AETHER_BIN="${ROOT_DIR}/target/release/aether_os"
+INCLUDE_HOST_MODULES="${INCLUDE_HOST_MODULES:-1}"
+
+require_tool() {
+  local tool="$1"
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "Missing required tool: $tool"
+    echo "Next step: install required build tools and rerun."
+    exit 1
+  fi
+}
+
+for t in cpio gzip find awk ldd; do
+  require_tool "$t"
+done
+
+kernel_candidates() {
+  if [[ -n "${KERNEL_SRC:-}" ]]; then
+    printf '%s\n' "${KERNEL_SRC}"
+    return 0
+  fi
+
+  printf '%s\n' \
+    "/lib/modules/${KERNEL_RELEASE}/vmlinuz" \
+    "/usr/lib/modules/${KERNEL_RELEASE}/vmlinuz" \
+    "/boot/vmlinuz-${KERNEL_RELEASE}" \
+    "/boot/vmlinuz" \
+    "/boot/bzImage-${KERNEL_RELEASE}"
+
+  # Fallback: pick any discoverable kernel image when uname -r does not match files on disk.
+  printf '%s\n' /lib/modules/*/vmlinuz /usr/lib/modules/*/vmlinuz /boot/vmlinuz-*
+}
+
+stage_kernel_image() {
+  local src
+  while IFS= read -r src; do
+    [[ -z "$src" ]] && continue
+    [[ -e "$src" ]] || continue
+
+    # Prefer readable candidates; skip protected files such as some /boot entries on CI runners.
+    if [[ ! -r "$src" ]]; then
+      echo "Skipping unreadable kernel image candidate: $src"
+      continue
+    fi
+
+    if cp "$src" "$KERNEL_OUT" 2>/dev/null; then
+      printf '%s\n' "$src"
+      return 0
+    fi
+
+    echo "Skipping kernel candidate that failed to copy: $src"
+  done < <(kernel_candidates | awk '!seen[$0]++')
+
+  return 1
+}
+
+copy_binary_with_deps() {
+  local binary="$1"
+  local destination_rel="$2"
+
+  if [[ ! -f "$binary" ]]; then
+    echo "Warning: binary missing, skipping dependency copy: $binary"
+    return 0
+  fi
+
+  mkdir -p "$INITRAMFS_STAGE$(dirname "$destination_rel")"
+  cp "$binary" "$INITRAMFS_STAGE$destination_rel"
+
+  while IFS= read -r lib; do
+    [[ -z "$lib" ]] && continue
+    mkdir -p "$INITRAMFS_STAGE$(dirname "$lib")"
+    cp "$lib" "$INITRAMFS_STAGE$lib"
+  done < <(ldd "$binary" | awk '{for (i=1; i<=NF; i++) if ($i ~ /^\//) print $i}' | sort -u)
+}
+
+mkdir -p "$OUT_DIR"
+
+KERNEL_SRC_PATH="$(stage_kernel_image || true)"
+if [[ -z "$KERNEL_SRC_PATH" ]]; then
+  echo "Kernel image could not be copied from candidate paths."
+  echo "Next step: set KERNEL_SRC to a readable Linux kernel image path."
+  exit 1
+fi
+
+if [[ ! -f "$AETHER_BIN" ]]; then
+  echo "Missing ${AETHER_BIN}"
+  echo "Next step: cargo build --release"
+  exit 1
+fi
+
+mkdir -p "$INITRAMFS_STAGE"/{bin,proc,sys,dev,etc,var/log/aetheros,lib/modules}
+cp "$ROOT_DIR/initramfs/init" "$INITRAMFS_STAGE/init"
+cp "$ROOT_DIR/initramfs/boot_guard.sh" "$INITRAMFS_STAGE/bin/boot_guard.sh"
+chmod +x "$INITRAMFS_STAGE/init" "$INITRAMFS_STAGE/bin/boot_guard.sh"
+
+copy_binary_with_deps "$AETHER_BIN" "/bin/aether_os"
+copy_binary_with_deps "/bin/sh" "/bin/sh"
+
+if [[ "$INCLUDE_HOST_MODULES" == "1" ]]; then
+  MODULES_DIR=""
+  if [[ -d "/lib/modules/${KERNEL_RELEASE}" ]]; then
+    MODULES_DIR="/lib/modules/${KERNEL_RELEASE}"
+  else
+    IMAGE_BASENAME="$(basename "$KERNEL_SRC_PATH")"
+    IMAGE_RELEASE="${IMAGE_BASENAME#vmlinuz-}"
+    if [[ "$IMAGE_RELEASE" != "$IMAGE_BASENAME" && -d "/lib/modules/${IMAGE_RELEASE}" ]]; then
+      MODULES_DIR="/lib/modules/${IMAGE_RELEASE}"
+    else
+      for d in /lib/modules/*; do
+        if [[ -d "$d" ]]; then
+          MODULES_DIR="$d"
+          break
+        fi
+      done
+    fi
+  fi
+
+  if [[ -n "$MODULES_DIR" ]]; then
+    cp -a "$MODULES_DIR" "$INITRAMFS_STAGE/lib/modules/"
+    echo "  Modules:       $MODULES_DIR"
+  else
+    echo "Warning: no kernel modules directory found; continuing without host modules."
+  fi
+fi
+
+(
+  cd "$INITRAMFS_STAGE"
+  find . -print0 | cpio --null -ov --format=newc 2>/dev/null | gzip -9 > "$INITRAMFS_OUT"
+)
+
+echo "Built kernel bundle:"
+echo "  Kernel source: $KERNEL_SRC_PATH"
+echo "  Kernel out:    $KERNEL_OUT"
+echo "  Initramfs:     $INITRAMFS_OUT"

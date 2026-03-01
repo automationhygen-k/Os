@@ -1,0 +1,45 @@
+name: Rust CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  bootable-iso: # Renamed to match your screenshot
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rust-src, llvm-tools-preview
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release runtime (retry)
+        run: cargo build --release
+
+      - name: Install bootable ISO tooling (multi-strategy)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mtools mdtm xorriso grub-pc-bin grub-common
+
+      - name: Preflight toolchain verification
+        run: cargo --version
+
+      - name: Build bootable ISO
+        # Added sudo here to fix the "unreadable kernel" error from your screenshot
+        # Added mkdir to ensure the output path exists before the script runs
+        run: |
+          mkdir -p image/out
+          sudo AUTO_INSTALL_TOOLS=0 bash scripts/build_bootable_iso.sh
+
+      - name: Upload single ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootable-iso
+          path: image/out/*.iso
