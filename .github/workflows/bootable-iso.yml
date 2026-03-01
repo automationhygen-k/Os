@@ -2,6 +2,8 @@ name: Build Bootable ISO (only workflow)
 
 on:
   workflow_dispatch:
+  push:
+    branches: ["**"]
 
 concurrency:
   group: aetheros-bootable-iso
