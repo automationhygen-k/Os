@@ -25,43 +25,45 @@ for t in cpio gzip find awk ldd; do
   require_tool "$t"
 done
 
-locate_kernel_image() {
+kernel_candidates() {
   if [[ -n "${KERNEL_SRC:-}" ]]; then
-    [[ -f "${KERNEL_SRC}" ]] && {
-      printf '%s\n' "${KERNEL_SRC}"
-      return 0
-    }
-    echo "KERNEL_SRC was provided but not found: ${KERNEL_SRC}" >&2
-    return 1
+    printf '%s\n' "${KERNEL_SRC}"
+    return 0
   fi
 
-  local candidates=(
-    "/boot/vmlinuz-${KERNEL_RELEASE}"
-    "/boot/vmlinuz"
+  printf '%s\n' \
+    "/lib/modules/${KERNEL_RELEASE}/vmlinuz" \
+    "/usr/lib/modules/${KERNEL_RELEASE}/vmlinuz" \
+    "/boot/vmlinuz-${KERNEL_RELEASE}" \
+    "/boot/vmlinuz" \
     "/boot/bzImage-${KERNEL_RELEASE}"
-    "/lib/modules/${KERNEL_RELEASE}/vmlinuz"
-    "/usr/lib/modules/${KERNEL_RELEASE}/vmlinuz"
-  )
-
-  local c
-  for c in "${candidates[@]}"; do
-    if [[ -f "$c" ]]; then
-      printf '%s\n' "$c"
-      return 0
-    fi
-  done
 
   # Fallback: pick any discoverable kernel image when uname -r does not match files on disk.
-  for c in /boot/vmlinuz-* /lib/modules/*/vmlinuz /usr/lib/modules/*/vmlinuz; do
-    if [[ -f "$c" ]]; then
-      printf '%s\n' "$c"
+  printf '%s\n' /lib/modules/*/vmlinuz /usr/lib/modules/*/vmlinuz /boot/vmlinuz-*
+}
+
+stage_kernel_image() {
+  local src
+  while IFS= read -r src; do
+    [[ -z "$src" ]] && continue
+    [[ -e "$src" ]] || continue
+
+    # Prefer readable candidates; skip protected files such as some /boot entries on CI runners.
+    if [[ ! -r "$src" ]]; then
+      echo "Skipping unreadable kernel image candidate: $src"
+      continue
+    fi
+
+    if cp "$src" "$KERNEL_OUT" 2>/dev/null; then
+      printf '%s\n' "$src"
       return 0
     fi
-  done
+
+    echo "Skipping kernel candidate that failed to copy: $src"
+  done < <(kernel_candidates | awk '!seen[$0]++')
 
   return 1
 }
-
 
 copy_binary_with_deps() {
   local binary="$1"
@@ -84,10 +86,10 @@ copy_binary_with_deps() {
 
 mkdir -p "$OUT_DIR"
 
-KERNEL_SRC_PATH="$(locate_kernel_image || true)"
+KERNEL_SRC_PATH="$(stage_kernel_image || true)"
 if [[ -z "$KERNEL_SRC_PATH" ]]; then
-  echo "Kernel image not found in known locations."
-  echo "Next step: set KERNEL_SRC to a valid Linux kernel image path."
+  echo "Kernel image could not be copied from candidate paths."
+  echo "Next step: set KERNEL_SRC to a readable Linux kernel image path."
   exit 1
 fi
 
@@ -96,8 +98,6 @@ if [[ ! -f "$AETHER_BIN" ]]; then
   echo "Next step: cargo build --release"
   exit 1
 fi
-
-cp "$KERNEL_SRC_PATH" "$KERNEL_OUT"
 
 mkdir -p "$INITRAMFS_STAGE"/{bin,proc,sys,dev,etc,var/log/aetheros,lib/modules}
 cp "$ROOT_DIR/initramfs/init" "$INITRAMFS_STAGE/init"
